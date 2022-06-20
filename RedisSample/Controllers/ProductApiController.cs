@@ -32,22 +32,15 @@ namespace RedisSample.Controllers
         {
             string serializedData = null;
 
-            var dataAsByteArray = await _cache.GetAsync("search");
+            var dataAsByteArray = await _cache.GetAsync("search2");
 
-            if ((dataAsByteArray?.Count() ?? 0) > 0)
+            if (dataAsByteArray != null)
             {
                 serializedData = Encoding.UTF8.GetString(dataAsByteArray);
                 var products = JsonSerializer.Deserialize
                     <List<Product>>(serializedData);
 
-                return Ok(new ProductResponse()
-                {
-                    StatusCode = HttpStatusCode.OK,
-                    IsDataFromCache = true,
-                    Data = products,
-                    Message = "Data retrieved from Redis Cache",
-                    Timestamp = DateTime.UtcNow
-                });
+                return new JsonResult(products);
             }
 
             var data = await _repo.GetSearchAsync();
@@ -57,7 +50,7 @@ namespace RedisSample.Controllers
             var options = new DistributedCacheEntryOptions()
                         .SetSlidingExpiration(TimeSpan.FromMinutes(5))
                         .SetAbsoluteExpiration(DateTime.Now.AddMinutes(5));
-            await _cache.SetAsync("search", dataAsByteArray, options);
+            await _cache.SetAsync("search2", dataAsByteArray, options);
 
             ProductResponse productResponse = new ProductResponse()
             {
@@ -70,5 +63,45 @@ namespace RedisSample.Controllers
             return Ok(productResponse);
         }
 
+
+        [HttpPost]
+        public async Task<JsonResult> Post([FromBody] Seo model)
+        {
+            var dataAsByteArray = await _cache.GetAsync("sea");
+            string serializedData = null;
+
+            if (dataAsByteArray != null)
+            {
+                serializedData = Encoding.UTF8.GetString(dataAsByteArray);
+                var products = JsonSerializer.Deserialize<List<Seo>>(serializedData);
+
+                products.Add(model);
+
+                serializedData = JsonSerializer.Serialize(products);
+                dataAsByteArray = Encoding.UTF8.GetBytes(serializedData);
+                var options = new DistributedCacheEntryOptions()
+                            .SetSlidingExpiration(TimeSpan.FromMinutes(5))
+                            .SetAbsoluteExpiration(DateTime.Now.AddMinutes(5));
+                await _cache.SetAsync("sea", dataAsByteArray, options);
+            }
+            else
+            {
+                List<Seo> products = new List<Seo>();
+                products.Add(model);
+                serializedData = JsonSerializer.Serialize(products);
+                dataAsByteArray = Encoding.UTF8.GetBytes(serializedData);
+                var options = new DistributedCacheEntryOptions()
+                            .SetSlidingExpiration(TimeSpan.FromMinutes(5))
+                            .SetAbsoluteExpiration(DateTime.Now.AddMinutes(5));
+                await _cache.SetAsync("sea", dataAsByteArray, options);
+            }
+            return new JsonResult(Ok());
+        }
+    }
+
+    public class Seo
+    {
+        public string Name { get; set; }
+        public string Description { get; set; }
     }
 }
